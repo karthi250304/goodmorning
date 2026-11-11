@@ -1,0 +1,10 @@
+.venv/
+logs/
+__pycache__/
+*.pyc
+secrets.env
+attendance_status.json
+attendance_status.json.bak
+attendance_status.json.tmp
+.instance.lock
+.scheduler.lock

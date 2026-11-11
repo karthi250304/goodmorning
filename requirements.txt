@@ -1,0 +1,5 @@
+selenium>=4.15,<5
+requests>=2.31
+keyring>=24.0
+tzdata>=2024.1
+telethon>=1.36,<2
