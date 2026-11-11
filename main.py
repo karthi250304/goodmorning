@@ -57,7 +57,7 @@ KEY_API_HASH = "telegram_api_hash"
 KEY_SESSION = "telegram_session"
 
 # Exact message requested (\U0001F31E = sun with face).
-MESSAGE = "\U0001F31E Good Morning All!\nHave a great and productive day!"
+MESSAGE = "Good Morning All"
 
 # Statuses after which NOTHING more is ever sent/checked for that day.
 TERMINAL = {"sent", "pending", "uncertain", "skipped_early", "skipped_late"}
