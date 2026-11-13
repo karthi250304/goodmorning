@@ -57,6 +57,7 @@ KEY_API_HASH = "telegram_api_hash"
 KEY_SESSION = "telegram_session"
 
 # Exact message requested (\U0001F31E = sun with face).
+DEDUPE_KEYWORD = "good morning"
 MESSAGE = "Good Morning All!"
 
 # Statuses after which NOTHING more is ever sent/checked for that day.
@@ -556,7 +557,7 @@ class TelegramUser:
         async for m in client.iter_messages(entity, limit=200):
             if m.date is not None and m.date.astimezone(_TZ) < day_start:
                 break
-            if getattr(m, "out", False) and (getattr(m, "message", "") or "").strip() == text.strip():
+            if getattr(m, "out", False) and text.strip().lower() in (getattr(m, "message", "") or "").lower():
                 return m.id
         return None
 
@@ -583,7 +584,7 @@ class TelegramUser:
                 return SendResult("fatal", f"Your account does not see chat {self.chat_id}: wrong ID or you are not in that group.")
             if dedupe:  # never post it twice, even if no state file survived (cloud runs, reinstalls)
                 try:
-                    existing = await asyncio.wait_for(self._find_today_message(client, entity, text), 60)
+                    existing = await asyncio.wait_for(self._find_today_message(client, entity, DEDUPE_KEYWORD), 60)
                 except Exception as exc:
                     return SendResult("not_delivered", "could not verify whether today's message exists: " + first_line(exc))
                 if existing is not None:
