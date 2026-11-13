@@ -57,7 +57,7 @@ KEY_API_HASH = "telegram_api_hash"
 KEY_SESSION = "telegram_session"
 
 # Exact message requested (\U0001F31E = sun with face).
-MESSAGE = "Good Morning All"
+MESSAGE = "\U0001F31E Good Morning All!\nHave a great and productive day!"
 
 # Statuses after which NOTHING more is ever sent/checked for that day.
 TERMINAL = {"sent", "pending", "uncertain", "skipped_early", "skipped_late"}
@@ -139,8 +139,10 @@ class Settings:
         try:
             self.login_url = get("hrms", "login_url")
             self.movements_url = get("hrms", "movements_url")
-            self.username = get("hrms", "username")
+            self.username = os.environ.get("HRMS_USERNAME", "").strip() or get("hrms", "username")
             self.config_password = get("hrms", "password")  # optional; less secure than Credential Manager
+            # Company rule: HRMS login only works AFTER the IN punch, so a refused login just means "not punched yet".
+            self.login_requires_punch = cp.getboolean("hrms", "login_requires_punch", fallback=True)
             self.employee_code = get("hrms", "employee_code", "8933")
             self.tz = ZoneInfo(get("schedule", "timezone", "Asia/Kolkata"))
             self.start = _hhmm(get("schedule", "start_time", "08:00"))
@@ -157,7 +159,7 @@ class Settings:
             self.date_formats = [f.strip() for f in get("page", "date_formats", "%d-%m-%Y").split(",") if f.strip()]
             self.date_input_format = get("page", "date_input_format", "%d-%m-%Y")
             self.search_button_selector = get("page", "search_button_selector")
-            self.chat_id = get("telegram", "chat_id")
+            self.chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip() or get("telegram", "chat_id")
             self.tg_mode = get("telegram", "mode", "user").lower()
         except Exception as exc:  # ValueError, ZoneInfoNotFoundError, ...
             raise ConfigError(f"Invalid value in config.ini: {first_line(exc)}") from exc
@@ -854,8 +856,18 @@ class HRMS:
         try:
             WebDriverWait(d, self.s.element_timeout).until(lambda _d: not self._on_login_page())
         except TimeoutException as exc:
-            raise LoginError("Still on the login page after clicking Sign In (wrong credentials?).") from exc
+            raise LoginError("Still on the login page after Sign In. Page says: %r" % self._login_error_text()) from exc
         log.info("Login successful.")
+
+    def _login_error_text(self) -> str:
+        try:
+            txt = self.driver.execute_script(
+                "var sel='.alert,.text-danger,.invalid-feedback,.error,.swal2-popup,.toast,.notify';"
+                "return Array.from(document.querySelectorAll(sel)).map(function(e){return (e.innerText||'').trim();})"
+                ".filter(function(t){return t;}).join(' | ');") or ""
+        except Exception:
+            return ""
+        return " ".join(str(txt).split())[:200]
 
     def open_movements(self) -> None:
         from selenium.common.exceptions import TimeoutException
@@ -1013,10 +1025,14 @@ def run(s: Settings, args, store: StateStore, password: str, tg: Optional[Telegr
                     errors = login_failures = 0
                 except LoginError as exc:
                     login_failures += 1
-                    log.error("Login problem (%d/3): %s", login_failures, first_line(exc))
-                    if login_failures >= 3:
-                        log.critical("Stopping to avoid locking the HRMS account. Check the stored password.")
-                        return 2
+                    if s.login_requires_punch:
+                        log.info("Check #%d: HRMS login refused - expected until the IN punch is recorded (%s)",
+                                 checks, first_line(exc))
+                    else:
+                        log.error("Login problem (%d/3): %s", login_failures, first_line(exc))
+                        if login_failures >= 3:
+                            log.critical("Stopping to avoid locking the HRMS account. Check the stored password.")
+                            return 2
                 except (TableError, AmbiguousError) as exc:
                     errors += 1
                     log.error("Page problem: %s", first_line(exc))
