@@ -4,8 +4,8 @@ on:
   schedule:
     # UTC. 02:27 UTC = 07:57 IST: main run (waits for 08:00, then checks every 2 minutes until the
     # message is sent or 11:02 IST). The two later times are BACKUPS in case the first one never started.
-    - cron: "27 2 * * 1-6"
-    - cron: "17 3 * * 1-6"
+    - cron: "7 3 * * 1-6"
+    - cron: "47 3 * * 1-6"
     - cron: "17 4 * * 1-6"
   workflow_dispatch:
     inputs:
